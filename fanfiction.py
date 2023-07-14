@@ -139,6 +139,7 @@ class GetLinks():
     def __str__(self):
         print(self.get_topics())
 
+scraping_url = input('Give the URL to scrape please: ')
 a = GetLinks()
-a.pagecount("https://www.fanfiction.net/movie/X-Men-The-Movie/?&srt=1&lan=1&r=10&_v1=523&p=1")
+a.pagecount(scraping_url)
 #a.pagecount("https://www.fanfiction.net/book/Heralds-of-Valdemar/?&srt=1&r=10")

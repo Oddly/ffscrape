@@ -91,13 +91,15 @@ class GetLinks():
         
         # Get all of the links on the page 
         fanfiction = link_soup.find_all('a', class_='stitle')
+        linkfile = open("scrapedlinks.txt", "a")
 
         fanfiction_links = []
         for item in fanfiction:
             fanfiction_links.append(item.get('href'))
         
         for link in fanfiction_links:
-            print(self.ff_url+link)
+            #print(self.ff_url+link)
+            linkfile.write(self.ff_url+link + "\n")
 
 
     def get_topics(self, topic):

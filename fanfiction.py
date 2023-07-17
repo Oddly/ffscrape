@@ -2,13 +2,15 @@
 
 from bs4 import BeautifulSoup
 import undetected_chromedriver as uc
-import itertools, time, random
+import itertools, time, random, os
 
 class GetLinks(): 
 
     ff_url = "https://fanfiction.net"
     soup_cache = dict()
+    home_directory = os.path.expanduser ( '~' )
 
+    
     def __init__(self):
         pass 
 
@@ -75,7 +77,7 @@ class GetLinks():
 
         if page_count == 0:
             url2 = url
-            get_links(url2)
+            self.get_links(url2)
         else:
             # Make sure the script gets the last page as well.
             page_count += 1
@@ -91,7 +93,7 @@ class GetLinks():
         
         # Get all of the links on the page 
         fanfiction = link_soup.find_all('a', class_='stitle')
-        linkfile = open("scrapedlinks.txt", "a")
+        linkfile = open(self.home_directory + "/scrapedlinks-%s.txt" %(time.strftime("%Y%m%d-%H%M%S")), "a")
 
         fanfiction_links = []
         for item in fanfiction:
@@ -99,9 +101,12 @@ class GetLinks():
         
         for link in fanfiction_links:
             #print(self.ff_url+link)
-            linkfile.write(self.ff_url+link + "\n")
+           linkfile.write(self.ff_url+link + "\n")
+        linkfile.close()
+        print("\nWritten links to " + linkfile.name + "\n")
 
 
+    # This function is not used for now.
     def get_topics(self, topic):
     
         # Get the soup, with caching enabled.
@@ -132,12 +137,6 @@ class GetLinks():
         print("Topic: "+requested_topic)
         return requested_topic
 
-#    def get_stories(self):
-
-
-#    def get_fanfic(self):
-    
-    
     def __str__(self):
         print(self.get_topics())
 

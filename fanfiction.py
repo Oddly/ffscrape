@@ -9,7 +9,8 @@ class GetLinks():
     ff_url = "https://fanfiction.net"
     soup_cache = dict()
     home_directory = os.path.expanduser ( '~' )
-
+    file_time = time.strftime("%Y%m%d-%H%M%S")
+    debug = 1
     
     def __init__(self):
         pass 
@@ -18,17 +19,29 @@ class GetLinks():
 
         soup_cache = self.soup_cache
 
-        # DEBUG
-        #print("url: "+url)
+        if self.debug == 1:
+            print("url: "+url)
 
         # Check whether we have the URL in cache
         if url not in soup_cache:
 
-            # DEBUG
-            #print("Cache MISS...requesting")
+            if self.debug == 1:
+                # DEBUG
+                print("Cache MISS...requesting")
             
             # Use undetected_chromedriver to bypass Cloudflare.
-            driver = uc.Chrome(headless=True,use_subprocess=False)
+            chrome_options = uc.ChromeOptions()
+            #chrome_options.add_argument("--user-data-dir=/tmp/google/chrome/user/data"); 
+            chrome_options.add_argument("--incognito");
+            chrome_options.add_argument("--disable-extensions");
+            chrome_options.add_argument("--disable-application-cache");
+            chrome_options.add_argument("--disable-setuid-sandbox");
+            chrome_options.add_argument("--headless=new");
+            chrome_options.add_argument("--no-sandbox");
+            chrome_options.add_argument("--disable-dev-shm-usage");
+            chrome_options.add_argument("--disable-browser-side-navigation");
+            chrome_options.add_argument("--disable-gpu");
+            driver = uc.Chrome(headless=True,use_subprocess=False,options=chrome_options)
             driver.get(url)
              
             # Sleep a random time 0..5 as not to trigger anti-spam.
@@ -40,8 +53,9 @@ class GetLinks():
             # Put results in "soup_cache" if cached is requested.
             if cache_on == True:
 
-                # DEBUG
-                # print("Result to the cache!")
+                if self.debug == 1:
+                    # DEBUG
+                    print("Result to the cache!")
             
                 # Parse it with the BeautifulSoup library.
                 soup_cache[url] = BeautifulSoup(page, "html.parser")
@@ -50,16 +64,18 @@ class GetLinks():
             # Skip "soup_cache" if caching is not requested.
             elif cache_on == False:
 
-                # DEBUG
-                # print("Result not to the cache!")
+                if self.debug == 1:
+                    # DEBUG
+                    print("Result not to the cache!")
 
                 # Parse it with the BeautifulSoup library.
                 soup_raw = BeautifulSoup(page, "html.parser")
-
+            driver.quit()
             return soup_raw
         else:
-            # DEBUG
-            #print('Cache HIT...not requesting.')
+            if self.debug == 1:
+                # DEBUG
+                print('Cache HIT...not requesting.')
             return soup_cache[url]
 
     def pagecount(self, url):
@@ -72,8 +88,9 @@ class GetLinks():
         for item in get_pages:
             if item.get_text('href') == "Last":
                 page_count = int((item.get('href').split("&p="))[1])
-        # DEBUG
-        # print("page count=",page_count)
+        if self.debug == 1:
+            # DEBUG
+            print("page count=",page_count)
 
         if page_count == 0:
             url2 = url
@@ -86,6 +103,8 @@ class GetLinks():
                 url2 = url+"&p="+str(counter)
                 self.get_links(url2)
                 counter += 1
+                if self.debug == 1:
+                    print(counter)
     
     def get_links(self, url):
 
@@ -93,15 +112,15 @@ class GetLinks():
         
         # Get all of the links on the page 
         fanfiction = link_soup.find_all('a', class_='stitle')
-        linkfile = open(self.home_directory + "/scrapedlinks-%s.txt" %(time.strftime("%Y%m%d-%H%M%S")), "a")
+        linkfile = open(self.home_directory + "/scrapedlinks-%s.txt" %(self.file_time), "a")
 
         fanfiction_links = []
         for item in fanfiction:
             fanfiction_links.append(item.get('href'))
         
         for link in fanfiction_links:
-            #print(self.ff_url+link)
-           linkfile.write(self.ff_url+link + "\n")
+            print("Adding", self.ff_url+link)
+            linkfile.write(self.ff_url+link + "\n")
         linkfile.close()
         print("\nWritten links to " + linkfile.name + "\n")
 

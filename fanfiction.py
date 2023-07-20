@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
 from bs4 import BeautifulSoup
-import undetected_chromedriver as uc
+#import undetected_chromedriver as uc
+from seleniumbase import DriverContext 
 import itertools, time, random, os, subprocess
+from tqdm import tqdm
 
 class GetLinks(): 
 
@@ -29,49 +31,50 @@ class GetLinks():
                 # DEBUG
                 print("Cache MISS...requesting")
             
-            # Use undetected_chromedriver to bypass Cloudflare.
-            chrome_options = uc.ChromeOptions()
-            #chrome_options.add_argument("--user-data-dir=/tmp/google/chrome/user/data"); 
-            chrome_options.add_argument("--incognito");
-            chrome_options.add_argument("--disable-extensions");
-            chrome_options.add_argument("--disable-application-cache");
-            chrome_options.add_argument("--disable-setuid-sandbox");
-            chrome_options.add_argument("--headless=new");
-            chrome_options.add_argument("--no-sandbox");
-            chrome_options.add_argument("--disable-dev-shm-usage");
-            chrome_options.add_argument("--disable-browser-side-navigation");
-            chrome_options.add_argument("--disable-gpu");
-            driver = uc.Chrome(headless=True,use_subprocess=False,options=chrome_options)
-            driver.get(url)
+           # # Use undetected_chromedriver to bypass Cloudflare.
+           # chrome_options = uc.ChromeOptions()
+           # #chrome_options.add_argument("--user-data-dir=/tmp/google/chrome/user/data"); 
+           # chrome_options.add_argument("--incognito");
+           # chrome_options.add_argument("--disable-extensions");
+           # chrome_options.add_argument("--disable-application-cache");
+           # chrome_options.add_argument("--disable-setuid-sandbox");
+           # chrome_options.add_argument("--headless=new");
+           # chrome_options.add_argument("--no-sandbox");
+           # chrome_options.add_argument("--disable-dev-shm-usage");
+           # chrome_options.add_argument("--disable-browser-side-navigation");
+           # chrome_options.add_argument("--disable-gpu");
+           # driver = uc.Chrome(headless=True,use_subprocess=False,options=chrome_options)
+           # driver.get(url)
              
             # Sleep a random time 0..15 as not to trigger anti-spam.
             #time.sleep(random.randint(0,15))
+            with DriverContext(uc=True, incognito=True) as driver:
+                driver.get(url)
+                # Put the above page in the 'page' variable.
+                page = driver.page_source
 
-            # Put the above page in the 'page' variable.
-            page = driver.page_source
+                # Put results in "soup_cache" if cached is requested.
+                if cache_on == True:
 
-            # Put results in "soup_cache" if cached is requested.
-            if cache_on == True:
+                    if self.debug == 1:
+                        # DEBUG
+                        print("Result to the cache!")
+                
+                    # Parse it with the BeautifulSoup library.
+                    soup_cache[url] = BeautifulSoup(page, "html.parser")
+                    soup_raw = soup_cache[url]
 
-                if self.debug == 1:
-                    # DEBUG
-                    print("Result to the cache!")
-            
-                # Parse it with the BeautifulSoup library.
-                soup_cache[url] = BeautifulSoup(page, "html.parser")
-                soup_raw = soup_cache[url]
+                # Skip "soup_cache" if caching is not requested.
+                elif cache_on == False:
 
-            # Skip "soup_cache" if caching is not requested.
-            elif cache_on == False:
+                    if self.debug == 1:
+                        # DEBUG
+                        print("Result not to the cache!")
 
-                if self.debug == 1:
-                    # DEBUG
-                    print("Result not to the cache!")
-
-                # Parse it with the BeautifulSoup library.
-                soup_raw = BeautifulSoup(page, "html.parser")
-            driver.quit()
-            return soup_raw
+                    # Parse it with the BeautifulSoup library.
+                    soup_raw = BeautifulSoup(page, "html.parser")
+                driver.quit()
+                return soup_raw
         else:
             if self.debug == 1:
                 # DEBUG
@@ -88,7 +91,7 @@ class GetLinks():
         for item in get_pages:
             if item.get_text('href') == "Last":
                 page_count = int((item.get('href').split("&p="))[1])
-        if self.debug == 1:
+        if self.debug == 0:
             # DEBUG
             print("page count=",page_count)
 
@@ -102,16 +105,19 @@ class GetLinks():
             # Make sure the script gets the last page as well.
             page_count += 1
             counter = 1
+            pbar = tqdm(total=page_count)
             while counter != page_count:
                 url2 = url+"&p="+str(counter)
                 temp_list = self.get_links(url2)
                 final_link_list.extend(temp_list)
                 temp_list.clear()
                 counter += 1
+                pbar.update(1)
                 if self.debug == 1:
                     print(counter)
+            pbar.close()
         
-        writeout_file = self.home_directory + "/scrapedlink-%s.txt" %(self.file_time)
+        writeout_file = self.home_directory + "/scrapedlink-{time}.txt".format(time=self.file_time)
         transfer_ul_link = "https://transfer.sh/" + fanfic_name
 
         with open(writeout_file, "a") as of:
@@ -125,13 +131,15 @@ class GetLinks():
     
     def get_links(self, url):
 
+        # Get the page source and set variables
         link_soup = self.get_soup(url, cache_on=False)
         page_links = []
+        fanfiction_links = []
         
         # Get all of the links on the page 
         fanfiction = link_soup.find_all('a', class_='stitle')
 
-        fanfiction_links = []
+        
         for item in fanfiction:
             fanfiction_links.append(item.get('href'))
         
@@ -139,44 +147,14 @@ class GetLinks():
             if self.debug == 1:
                 print(self.ff_url+link)
             page_links.append(self.ff_url + link + "\n")
-            #linkfile.write(self.ff_url+link + "\n")
 
         return page_links
 
 
-    # This function is not used for now.
-    def get_topics(self, topic):
-    
-        # Get the soup, with caching enabled.
-        soup = self.get_soup(self.ff_url, cache_on=True) 
-
-        # Get all of the topics, in Fanfiction as well as Crossovers.
-        fanfiction = soup.find_all("table", id="gui_table1i")
-        crossovers = soup.find_all("table", id="gui_table2i")
-    
-        # Put all topic text in a list. E.g: "Books"
-        topic_text = []
-        for item in itertools.chain(fanfiction[0].find_all('a'), crossovers[0].find_all('a')):
-            topic_text.append(item.get_text('href'))
-    
-        # Put all the topic URLs in a list. E.g.: "/books/"
-        topic_urls = []
-        for item in itertools.chain(fanfiction[0].find_all('a'), crossovers[0].find_all('a')):
-            topic_urls.append(item.get('href'))
-    
-        # Make a dictionary from both lists.
-        topic_tuple = [(key.lower(), value.lower())
-                       for i, (key, value) in enumerate(zip(topic_text, topic_urls))]
-        topic_dict = dict(topic_tuple)
-        
-        # Use the class input to lookup the requested value.
-        requested_topic = ""
-        requested_topic = topic_dict[topic]
-        print("Topic: "+requested_topic)
-        return requested_topic
-
     def __str__(self):
         print(self.get_topics())
+
+
 
 scraping_url = input('Give the URL to scrape please: ')
 fanfic_name = input('Give the fanfic name: ')

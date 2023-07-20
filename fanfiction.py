@@ -44,8 +44,8 @@ class GetLinks():
             driver = uc.Chrome(headless=True,use_subprocess=False,options=chrome_options)
             driver.get(url)
              
-            # Sleep a random time 0..5 as not to trigger anti-spam.
-            time.sleep(random.randint(0,15))
+            # Sleep a random time 0..15 as not to trigger anti-spam.
+            #time.sleep(random.randint(0,15))
 
             # Put the above page in the 'page' variable.
             page = driver.page_source

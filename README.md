@@ -2,7 +2,7 @@
 
 ## Installation
 
-For simplicity sake, I'm going to only support Debian and Debian like distros.
+For simplicity sake, I'm going to only support Debian based distros.
 
 ### Git clone this repo
 

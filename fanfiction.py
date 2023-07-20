@@ -2,7 +2,7 @@
 
 from bs4 import BeautifulSoup
 import undetected_chromedriver as uc
-import itertools, time, random, os
+import itertools, time, random, os, subprocess
 
 class GetLinks(): 
 
@@ -10,7 +10,7 @@ class GetLinks():
     soup_cache = dict()
     home_directory = os.path.expanduser ( '~' )
     file_time = time.strftime("%Y%m%d-%H%M%S")
-    debug = 1
+    debug = 0
     
     def __init__(self):
         pass 
@@ -92,37 +92,56 @@ class GetLinks():
             # DEBUG
             print("page count=",page_count)
 
+        final_link_list = []
+
         if page_count == 0:
             url2 = url
-            self.get_links(url2)
+            temp_list = self.get_links(url2)
+            final_link_list.extend(temp_list)
         else:
             # Make sure the script gets the last page as well.
             page_count += 1
             counter = 1
             while counter != page_count:
                 url2 = url+"&p="+str(counter)
-                self.get_links(url2)
+                temp_list = self.get_links(url2)
+                final_link_list.extend(temp_list)
+                temp_list.clear()
                 counter += 1
                 if self.debug == 1:
                     print(counter)
+        
+        writeout_file = self.home_directory + "/scrapedlink-%s.txt" %(self.file_time)
+        transfer_ul_link = "https://transfer.sh/" + fanfic_name
+
+        with open(writeout_file, "a") as of:
+            of.write("".join(str(item) for item in final_link_list))
+
+        transfer_sh = subprocess.run(["curl", "--upload-file", writeout_file, transfer_ul_link], capture_output = True, text = True)
+
+        print("Fanfic done: %s" %(fanfic_name))
+        print("Download URL: %s" %(transfer_sh.stdout))
+
     
     def get_links(self, url):
 
         link_soup = self.get_soup(url, cache_on=False)
+        page_links = []
         
         # Get all of the links on the page 
         fanfiction = link_soup.find_all('a', class_='stitle')
-        linkfile = open(self.home_directory + "/scrapedlinks-%s.txt" %(self.file_time), "a")
 
         fanfiction_links = []
         for item in fanfiction:
             fanfiction_links.append(item.get('href'))
         
         for link in fanfiction_links:
-            print("Adding", self.ff_url+link)
-            linkfile.write(self.ff_url+link + "\n")
-        linkfile.close()
-        print("\nWritten links to " + linkfile.name + "\n")
+            if self.debug == 1:
+                print(self.ff_url+link)
+            page_links.append(self.ff_url + link + "\n")
+            #linkfile.write(self.ff_url+link + "\n")
+
+        return page_links
 
 
     # This function is not used for now.
@@ -160,6 +179,7 @@ class GetLinks():
         print(self.get_topics())
 
 scraping_url = input('Give the URL to scrape please: ')
+fanfic_name = input('Give the fanfic name: ')
 a = GetLinks()
 a.pagecount(scraping_url)
 #a.pagecount("https://www.fanfiction.net/book/Heralds-of-Valdemar/?&srt=1&r=10")

@@ -2,9 +2,9 @@
 
 from bs4 import BeautifulSoup
 from seleniumbase import Driver 
-import  time, os, subprocess
+import  time, os, subprocess, logging
 from tqdm import tqdm
-from tenacity import retry
+import tenacity
 
 class GetLinks(): 
 
@@ -12,18 +12,17 @@ class GetLinks():
     home_directory = os.path.expanduser ( '~' )
     file_time = time.strftime("%Y%m%d-%H%M%S")
     debug = 0
+    logging.basicConfig(level=logging.INFO)
     
     def __init__(self):
         pass 
 
-    @retry()
+    @tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_fixed(.5),
+                    after=tenacity.after_log(logging, logging.DEBUG))
     def get_soup(self, url):
-
-        if self.debug == 1:
-            print("url: "+url)
-
+        logging.info('Getting url {}'.format(url))
+        
         with Driver(undetectable=True, incognito=True, headless2=True) as driver:
-            
             driver.get(url)
 
             # Put the above page in the 'page' variable.
@@ -31,7 +30,7 @@ class GetLinks():
 
             # Parse it with the BeautifulSoup library.
             soup_raw = BeautifulSoup(page, "html.parser")
-            return soup_raw
+        return soup_raw
 
 
     def pagecount(self, url):
@@ -45,9 +44,7 @@ class GetLinks():
         for item in get_pages:
             if item.get_text('href') == "Last":
                 page_count = int((item.get('href').split("&p="))[1])
-        if self.debug == 0:
-            # DEBUG
-            print("page count=",page_count)
+        logging.debug('Pages counted: {}'.format(page_count))
 
         final_link_list = []
         writeout_file = self.home_directory + "/scrapedlink-{time}.txt".format(time=self.file_time)
@@ -72,8 +69,7 @@ class GetLinks():
                     self.writeout(writeout_file, final_link_list)
                     final_link_list.clear()
                     print("Written to file!")
-                if self.debug == 1:
-                    print(counter)
+                logging.debug('Current counter: {}'.format(counter))
             pbar.close()
         
         transfer_ul_link = "https://transfer.sh/" + fanfic_name
@@ -82,8 +78,8 @@ class GetLinks():
 
         transfer_sh = subprocess.run(["curl", "--upload-file", writeout_file, transfer_ul_link], capture_output = True, text = True)
 
-        print("Fanfic done: %s" %(fanfic_name))
-        print("Download URL: %s" %(transfer_sh.stdout))
+        logging.info('Fanfic done: %s', fanfic_name)
+        logging.info('Download URL: %s', transfer_sh.stdout)
 
     
     def get_links(self, url):
@@ -101,8 +97,7 @@ class GetLinks():
             fanfiction_links.append(item.get('href'))
         
         for link in fanfiction_links:
-            if self.debug == 1:
-                print(self.ff_url+link)
+            logging.debug('Link appended: %s+%s', self.ff_url, link)
             page_links.append(self.ff_url + link + "\n")
 
         return page_links

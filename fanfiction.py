@@ -12,12 +12,12 @@ class GetLinks():
     home_directory = os.path.expanduser ( '~' )
     file_time = time.strftime("%Y%m%d-%H%M%S")
     debug = 0
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     
     def __init__(self):
         pass 
 
-    @tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_fixed(.5),
+    @tenacity.retry(stop=tenacity.stop_after_attempt(4), wait=tenacity.wait_fixed(.5),
                     after=tenacity.after_log(logging, logging.DEBUG))
     def get_soup(self, url):
         logging.info('Getting url {}'.format(url))
@@ -30,22 +30,25 @@ class GetLinks():
 
             # Parse it with the BeautifulSoup library.
             soup_raw = BeautifulSoup(page, "html.parser")
-        return soup_raw
+            #logging.debug('soup_raw: %s', soup_raw)
+            return soup_raw
 
 
     def pagecount(self, url):
         
-        soup = self.get_soup(url)
         
         # Get the number of total pages in this fanfic
-        page_count = int() 
-        get_pages = soup.find_all('a')
+        page_count = 0 
 
-        for item in get_pages:
-            if item.get_text('href') == "Last":
-                page_count = int((item.get('href').split("&p="))[1])
+        while page_count == 0:
+            soup = self.get_soup(url)
+            get_pages = soup.find_all('a')
+            for item in get_pages:
+                if item.get_text('href') == "Last":
+                    logging.debug('href "Last": %s', item)
+                    page_count = int((item.get('href').split("&p="))[1])
         logging.debug('Pages counted: {}'.format(page_count))
-
+            
         final_link_list = []
         writeout_file = self.home_directory + "/scrapedlink-{time}.txt".format(time=self.file_time)
 
@@ -56,7 +59,10 @@ class GetLinks():
         else:
             # Make sure the script gets the last page as well.
             page_count += 1
-            counter = 1
+            if counter_requested == 0:
+                counter = 1
+            elif counter_requested != 0:
+                counter = counter_requested
             pbar = tqdm(total=page_count)
             while counter != page_count:
                 url2 = url+"&p="+str(counter)
@@ -97,7 +103,7 @@ class GetLinks():
             fanfiction_links.append(item.get('href'))
         
         for link in fanfiction_links:
-            logging.debug('Link appended: %s+%s', self.ff_url, link)
+            logging.debug('Link appended: %s%s', self.ff_url, link)
             page_links.append(self.ff_url + link + "\n")
 
         return page_links
@@ -115,6 +121,7 @@ class GetLinks():
 
 scraping_url = input('Give the URL to scrape please: ')
 fanfic_name = input('Give the fanfic name: ')
+counter_requested = int(input('Enter the starting page number (empty for 0): ') or 0)
 a = GetLinks()
 a.pagecount(scraping_url)
 #a.pagecount("https://www.fanfiction.net/book/Heralds-of-Valdemar/?&srt=1&r=10")

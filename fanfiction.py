@@ -12,7 +12,8 @@ class GetLinks():
     home_directory = os.path.expanduser ( '~' )
     file_time = time.strftime("%Y%m%d-%H%M%S")
     debug = 0
-    logging.basicConfig(level=logging.DEBUG)
+    #logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     
     def __init__(self):
         pass 
@@ -20,7 +21,7 @@ class GetLinks():
     @tenacity.retry(stop=tenacity.stop_after_attempt(4), wait=tenacity.wait_fixed(.5),
                     after=tenacity.after_log(logging, logging.DEBUG))
     def get_soup(self, url):
-        logging.info('Getting url {}'.format(url))
+        logging.debug('Getting url {}'.format(url))
         
         with Driver(undetectable=True, incognito=True, headless2=True) as driver:
             driver.get(url)
@@ -50,6 +51,7 @@ class GetLinks():
         logging.debug('Pages counted: {}'.format(page_count))
             
         final_link_list = []
+        temp_list = []
         writeout_file = self.home_directory + "/scrapedlink-{time}.txt".format(time=self.file_time)
 
         if page_count == 0:
@@ -66,7 +68,8 @@ class GetLinks():
             pbar = tqdm(total=page_count)
             while counter != page_count:
                 url2 = url+"&p="+str(counter)
-                temp_list = self.get_links(url2)
+                while not temp_list:
+                    temp_list = self.get_links(url2)
                 final_link_list.extend(temp_list)
                 temp_list.clear()
                 counter += 1
@@ -74,8 +77,10 @@ class GetLinks():
                 if counter % 10 == 0:
                     self.writeout(writeout_file, final_link_list)
                     final_link_list.clear()
-                    print("Written to file!")
+                    logging.debug("Written to file!")
                 logging.debug('Current counter: {}'.format(counter))
+            self.writeout(writeout_file, final_link_list)
+            final_link_list.clear()
             pbar.close()
         
         transfer_ul_link = "https://transfer.sh/" + fanfic_name
@@ -97,6 +102,7 @@ class GetLinks():
         
         # Get all of the links on the page 
         fanfiction = link_soup.find_all('a', class_='stitle')
+        #logging.debug('get_links find_all "a": %s', fanfiction)
 
         
         for item in fanfiction:
